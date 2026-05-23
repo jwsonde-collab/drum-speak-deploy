@@ -1,0 +1,9 @@
+{
+  "name": "drum-speak",
+  "version": "1.0.0",
+  "description": "Corporate to Drummer. Nothing else.",
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  }
+}

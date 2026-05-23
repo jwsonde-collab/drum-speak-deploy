@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Drum Speak — Translate Anything to Drummer</title>
+  <style>
+    :root {
+      --bg:       #111111;
+      --surface:  #1c1c1c;
+      --surface2: #252525;
+      --border:   #333333;
+      --accent:   #d62828;
+      --accent-glow: rgba(214,40,40,0.22);
+      --orange:   #f77f00;
+      --text:     #e8e8e8;
+      --muted:    #888888;
+      --input-bg: #161616;
+
+      /* genre accent vars (overridden by JS) */
+      --g: #d62828;
+      --g-glow: rgba(214,40,40,0.22);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    header {
+      padding: 24px 32px 18px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .logo-mark {
+      font-size: 2rem;
+      filter: drop-shadow(0 0 10px var(--g-glow));
+      transition: filter 0.4s;
+    }
+    .logo-text h1 {
+      font-size: 1.5rem;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: linear-gradient(90deg,#fff 55%,var(--orange));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .logo-text p {
+      font-size: 0.74rem;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
+    .header-sub {
+      margin-left: auto;
+      font-size: 0.78rem;
+      color: var(--muted);
+      text-align: right;
+      line-height: 1.5;
+    }
+    .header-sub a { color: var(--orange); text-decoration: none; }
+    .header-sub a:hover { text-decoration: underline; }
+
+    /* ── Main ── */
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 24px 32px;
+      gap: 16px;
+      max-width: 1120px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    /* ── Genre selector ── */
+    .genre-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .genre-row label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    .genre-pills {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .genre-pill {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 20px;
+      padding: 6px 16px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.18s;
+      white-space: nowrap;
+    }
+    .genre-pill:hover { border-color: #555; color: var(--text); }
+    .genre-pill.active {
+      background: var(--g);
+      border-color: var(--g);
+      color: #fff;
+      box-shadow: 0 0 12px var(--g-glow);
+    }
+
+    /* ── Translator panels ── */
+    .panels {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .panel-header {
+      padding: 9px 15px;
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .lang-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--border);
+      transition: background 0.3s;
+    }
+    .lang-dot.active { background: var(--g); }
+
+    textarea {
+      flex: 1;
+      background: var(--input-bg);
+      border: none;
+      outline: none;
+      color: var(--text);
+      font-size: 0.97rem;
+      line-height: 1.65;
+      padding: 16px;
+      resize: none;
+      min-height: 200px;
+      font-family: inherit;
+    }
+    textarea::placeholder { color: #3d3d3d; }
+
+    .output-area {
+      flex: 1;
+      padding: 16px;
+      min-height: 200px;
+      font-size: 0.97rem;
+      line-height: 1.65;
+      color: var(--text);
+      background: var(--input-bg);
+      white-space: pre-wrap;
+    }
+    .output-placeholder { color: #3d3d3d; font-style: italic; }
+    .output-text { animation: fadeIn 0.35s ease; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* random badge */
+    .random-badge {
+      display: inline-block;
+      font-size: 0.68rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 2px 7px;
+      color: var(--muted);
+      letter-spacing: 0.06em;
+      margin-bottom: 10px;
+    }
+
+    /* ── Controls ── */
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .btn-translate {
+      background: var(--g);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 11px 26px;
+      font-size: 0.92rem;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      cursor: pointer;
+      transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-translate:hover { box-shadow: 0 0 18px var(--g-glow); }
+    .btn-translate:active { transform: scale(0.97); }
+    .btn-translate:disabled { background: #3a3a3a; cursor: not-allowed; box-shadow: none; }
+
+    .btn-again {
+      background: transparent;
+      border: 1px solid var(--g);
+      color: var(--g);
+      border-radius: 8px;
+      padding: 11px 18px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: none;
+    }
+    .btn-again:hover { background: var(--g); color: #fff; }
+    .btn-again.visible { display: flex; align-items: center; gap: 6px; }
+
+    .btn-clear {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 8px;
+      padding: 11px 16px;
+      font-size: 0.82rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-clear:hover { border-color: #555; color: var(--text); }
+
+    .char-count { margin-left: auto; font-size: 0.75rem; color: var(--muted); }
+
+    /* ── Usage counter ── */
+    .usage-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 9px 14px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    .usage-pips {
+      display: flex;
+      gap: 5px;
+    }
+    .pip {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: var(--border);
+      transition: background 0.3s;
+    }
+    .pip.used { background: var(--g); }
+    .usage-label { flex: 1; }
+    .usage-reset { font-size: 0.72rem; color: #555; }
+
+    /* ── Rate limit message ── */
+    .rate-limit-msg {
+      display: none;
+      background: linear-gradient(135deg,#1a0a0a,#1c1010);
+      border: 1px solid #3a1a1a;
+      border-radius: 10px;
+      padding: 20px 22px;
+      text-align: center;
+    }
+    .rate-limit-msg h3 { font-size: 1rem; margin-bottom: 6px; }
+    .rate-limit-msg p { font-size: 0.82rem; color: var(--muted); margin-bottom: 14px; }
+    .rate-limit-msg .btn-subscribe {
+      background: var(--orange); color: #111; border: none; border-radius: 6px;
+      padding: 10px 22px; font-size: 0.88rem; font-weight: 700; cursor: pointer;
+    }
+
+    /* ── Examples ── */
+    .examples-section h2 {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 9px;
+    }
+    .examples-grid { display: flex; flex-wrap: wrap; gap: 7px; }
+    .example-chip {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 20px;
+      padding: 5px 13px;
+      font-size: 0.78rem;
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .example-chip:hover { border-color: var(--g); color: #fff; }
+
+    /* ── CTA ── */
+    .cta-bar {
+      background: linear-gradient(135deg,#1a0a0a,#1c1010);
+      border: 1px solid #3a1a1a;
+      border-radius: 10px;
+      padding: 18px 22px;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+    }
+    .cta-icon { font-size: 1.7rem; }
+    .cta-copy h3 { font-size: 0.92rem; font-weight: 700; margin-bottom: 3px; }
+    .cta-copy p { font-size: 0.78rem; color: var(--muted); line-height: 1.4; }
+    .cta-form { margin-left: auto; display: flex; gap: 7px; }
+    .cta-form input[type="email"] {
+      background: var(--input-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      padding: 8px 13px;
+      font-size: 0.82rem;
+      outline: none;
+      width: 210px;
+    }
+    .cta-form input[type="email"]:focus { border-color: var(--orange); }
+    .cta-form input[type="email"]::placeholder { color: #555; }
+    .btn-subscribe {
+      background: var(--orange);
+      color: #111;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 16px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: opacity 0.15s;
+    }
+    .btn-subscribe:hover { opacity: 0.85; }
+
+    /* ── Spinner ── */
+    .spinner {
+      display: inline-block;
+      width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Footer ── */
+    footer {
+      padding: 14px 32px;
+      border-top: 1px solid var(--border);
+      font-size: 0.73rem;
+      color: #444;
+      display: flex;
+      justify-content: space-between;
+    }
+    footer a { color: #555; text-decoration: none; }
+    footer a:hover { color: var(--muted); }
+
+    /* ── Responsive ── */
+    @media (max-width: 700px) {
+      main { padding: 16px; }
+      .panels { grid-template-columns: 1fr; }
+      .cta-bar { flex-direction: column; align-items: flex-start; }
+      .cta-form { margin-left: 0; flex-direction: column; width: 100%; }
+      .cta-form input[type="email"] { width: 100%; }
+      .header-sub { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo-mark" id="logoMark">🥁</div>
+  <div class="logo-text">
+    <h1>Drum Speak</h1>
+    <p>The only translator that matters</p>
+  </div>
+  <div class="header-sub">
+    A companion to<br>
+    <a href="YOUR_SUBSTACK_URL" target="_blank">your Substack</a> ↗
+  </div>
+</header>
+
+<main>
+
+  <!-- Genre selector -->
+  <div class="genre-row">
+    <label>Drummer genre:</label>
+    <div class="genre-pills" id="genrePills"></div>
+  </div>
+
+  <!-- Panels -->
+  <div class="panels">
+    <div class="panel">
+      <div class="panel-header">
+        <span class="lang-dot active"></span>
+        Corporate Speak
+      </div>
+      <textarea id="inputText"
+        placeholder="Paste in an email, meeting invite, performance review, mission statement… anything corporate."
+        maxlength="2000"
+        oninput="updateCharCount()"></textarea>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <span class="lang-dot" id="outputDot"></span>
+        <span id="outputLangLabel">Drummer</span>
+      </div>
+      <div class="output-area" id="outputArea">
+        <span class="output-placeholder">Your translation will appear here.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls">
+    <button class="btn-translate" id="translateBtn" onclick="doTranslate()">
+      <span id="btnIcon">🥁</span>
+      <span id="btnLabel">Translate to Drummer</span>
+    </button>
+    <button class="btn-again" id="againBtn" onclick="doTranslate()" title="Translate again — you'll get a different take">
+      🎲 Different take
+    </button>
+    <button class="btn-clear" onclick="clearAll()">Clear</button>
+    <span class="char-count" id="charCount">0 / 2000</span>
+  </div>
+
+  <!-- Usage counter -->
+  <div class="usage-row" id="usageRow">
+    <div class="usage-pips" id="usagePips"></div>
+    <span class="usage-label" id="usageLabel">5 translations free today</span>
+    <span class="usage-reset" id="usageReset"></span>
+  </div>
+
+  <!-- Rate limit hit -->
+  <div class="rate-limit-msg" id="rateLimitMsg">
+    <h3>You've hit your limit for today 🥁</h3>
+    <p>5 free translations a day. Come back tomorrow — or get the weekly unfiltered version in your inbox.</p>
+    <button class="btn-subscribe" onclick="subscribe()">Subscribe Free to Drum Speak</button>
+  </div>
+
+  <!-- Examples -->
+  <div class="examples-section">
+    <h2>Try an example</h2>
+    <div class="examples-grid" id="examplesGrid"></div>
+  </div>
+
+  <!-- Substack CTA -->
+  <div class="cta-bar">
+    <div class="cta-icon">🎸</div>
+    <div class="cta-copy">
+      <h3>Get the unfiltered translation every week.</h3>
+      <p>Corporate life. Drummer logic. No jargon, no buzzwords — just the truth from behind the kit.</p>
+    </div>
+    <div class="cta-form">
+      <input type="email" id="ctaEmail" placeholder="your@email.com" />
+      <button class="btn-subscribe" onclick="subscribe()">Subscribe Free</button>
+    </div>
+  </div>
+
+</main>
+
+<footer>
+  <span>Drum Speak — Corporate to Drummer, nothing else.</span>
+  <a href="YOUR_SUBSTACK_URL" target="_blank">Read the newsletter ↗</a>
+</footer>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// GENRE CONFIG
+// ─────────────────────────────────────────────────────────────────────────────
+const GENRES = {
+  rock: {
+    label: '🤘 Rock',
+    color: '#d62828',
+    glow: 'rgba(214,40,40,0.22)',
+    emoji: '🤘',
+    outputLabel: 'Rock Drummer',
+    styleGuide: `You are a rock drummer — direct, physical, slightly battle-worn, and funnier than anyone gives you credit for. You've been setting up more gear than anyone else in the room since 1997 and you've made a kind of peace with it.
+Band dynamics are real and specific to you: the lead guitarist's ego is a weather system you've learned to forecast, the bassist is your actual best friend, and the singer shows up fifteen minutes before doors and somehow still gets the most Instagram followers.
+You say what you mean. You mean what you say. And occasionally you say something that's technically about a hi-hat stand but is clearly about something else entirely, and everyone in the room knows it.`
+  },
+  jazz: {
+    label: '🎷 Jazz',
+    color: '#4a7fcb',
+    glow: 'rgba(74,127,203,0.22)',
+    emoji: '🎷',
+    outputLabel: 'Jazz Drummer',
+    styleGuide: `You are a jazz drummer — thoughtful, conversational, deeply aware of space, and quietly delighted by how seriously everyone takes everything.
+You understand that the most important beats are sometimes the ones you leave out, which is also true of most conversations, which is also true of this very sentence.
+You're influenced by decades of players who came before you and you reference them the way other people reference scripture, except scripture doesn't swing.
+You find the humor in precision. You're comfortable with ambiguity. You've been listening so long that silence has texture to you, which sounds pretentious but is just true.`
+  },
+  pop: {
+    label: '✨ Pop',
+    color: '#c04fa0',
+    glow: 'rgba(192,79,160,0.22)',
+    emoji: '✨',
+    outputLabel: 'Pop Drummer',
+    styleGuide: `You are a pop drummer — precise, professional, quietly exhausted, and possessed of an extremely dry sense of humor about all of it.
+You've done a hundred sessions. You've played to grids, been comped from six takes, watched a producer choose samples over the part you spent forty-five minutes perfecting, and then thanked them sincerely because the sample was technically better.
+You say things with a professional resignation that occasionally tips into something funnier and more honest than you intended. The click track is your meditation practice. You're not sure this is healthy.`
+  },
+  gospel: {
+    label: '🙏 Gospel',
+    color: '#c8920a',
+    glow: 'rgba(200,146,10,0.22)',
+    emoji: '🙏',
+    outputLabel: 'Gospel Drummer',
+    styleGuide: `You are a gospel drummer — powerful, communal, deeply sincere, and funnier than the music sometimes lets on.
+You understand that the music is in service of something larger, which is also a convenient explanation for why the song went around the chorus four extra times and nobody stopped you.
+You've been playing with these same musicians for years. You don't need charts. You barely need words. You have, however, developed very specific opinions about certain things — the right tempo for a shout section, what it means when the bass player gives you a look, why the choir always comes in a beat early on that one song — and occasionally those opinions surface.`
+  },
+  rap: {
+    label: '🎤 Rap',
+    color: '#27ae60',
+    glow: 'rgba(39,174,96,0.22)',
+    emoji: '🎤',
+    outputLabel: 'Hip-Hop Drummer',
+    styleGuide: `You are a hip-hop drummer and producer — you think in loops, in samples, in the space between the kick and the snare, and in the mild existential comedy of watching someone flip your drum break into a hit record without mentioning you.
+You've made peace with the 808. You've made peace with samples. You've made peace with a lot of things through sheer repetition and the occasional awareness that it's genuinely funny.
+You're direct. You're specific. You have the kind of humor that comes from watching the same situation play out seventeen different ways and realizing it's always the same situation.`
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RANDOM IDIOSYNCRASIES (15 per genre — one is selected at random each call)
+// ─────────────────────────────────────────────────────────────────────────────
+const IDIOSYNCRASIES = {
+  rock: [
+    "Your hi-hat stand has been wobbly for six weeks. You've been compensating without telling anyone, partly because it's embarrassing and partly because fixing it would mean admitting it was ever a problem.",
+    "You broke your favorite sticks at Thursday rehearsal. The backups are fine. They are objectively fine. You hate them.",
+    "The sound guy pulled your kick from the mix last night. You felt it before you heard it. You said nothing because you've had that conversation before and it doesn't end the way you want.",
+    "You've been playing the same crash cymbal for eleven years. It's cracked. It sounds incredible. These facts are related and you've made your peace with that.",
+    "Someone moved your throne between soundcheck and showtime. Two inches. You played the entire first set two inches too low and said nothing because how do you explain that without sounding completely unhinged.",
+    "The guitarist's monitor is bleeding into your kick mic. You've mentioned it twice. You will not mention it a third time. You will simply know.",
+    "You can hear yourself rushing the verses. You've been rushing the verses for three weeks. You have not told the band. You are fixing it in real time. This is called professionalism, loosely.",
+    "The set ended a full bar early because the singer called an audible nobody else heard. You covered it seamlessly. The singer thinks the ending was perfect. It was not perfect.",
+    "You are on your last pair of good sticks. There's a Guitar Center trip that needs to happen before Saturday. You keep remembering this at times when you are nowhere near a Guitar Center.",
+    "The bass player changed his amp settings before rehearsal without telling anyone. You noticed in bar two. You adjusted silently for three hours. You have still not said anything.",
+    "You played through a torn batter head last Saturday. Taped it before doors. It held. You're going to say it was intentional if anyone asks.",
+    "You've been trying to decode one specific Bonham fill for two weeks. You are closer. You are not there. You are going to be listening to this record forever.",
+    "Your kick pedal spring tension has been drifting. You've reset it four times this month. You check it now the way some people check their blood pressure — quietly, privately, with low expectations.",
+    "The ride cymbal was moved three inches closer by someone who thought they were helping. You moved it back during soundcheck. You didn't say anything. It was absolutely worth saying something.",
+    "The band got pizza at rehearsal. Nobody mentioned that you set up and tore down more gear than everyone else combined. You ate the pizza. You remember."
+  ],
+  jazz: [
+    "You've been playing with brushes so long that sticks feel aggressive now. Like waking someone up by yelling at them instead of just making coffee.",
+    "The pianist changed the chord on the bridge without warning last night. You found it in about half a beat. You've been a little smug about this ever since, which you're aware is not a jazz attitude, and yet.",
+    "You've been listening to the same Tony Williams record for nine days. Your partner has noticed. You've noticed them noticing. Nobody has said anything.",
+    "You played a gig where the piano was a half-step flat and nobody told you until after. You adjusted your whole approach mid-set without consciously deciding to. You're still not sure if that's mastery or some kind of dissociation.",
+    "Someone asked you to 'just keep time' at a session last month. You've been thinking about the word 'just' ever since.",
+    "You keep a practice pad in your car. Also on your desk. Also next to the bed. This stopped being a hobby some time ago.",
+    "Your ride cymbal has a sweet spot about four inches from the bell. You always find it. You couldn't point to it on a map. Some knowledge lives in the hands and doesn't speak.",
+    "A young drummer came to watch your set last week. You played smaller without deciding to. More careful. More honest. You're not sure what to do with that.",
+    "The club's piano hasn't been tuned in eight months. You rebuilt your whole approach around it. You're almost annoyed by how well it worked.",
+    "You left a perfect accent off the three in the third set last Friday. Nobody noticed. You have thought about it every single day since.",
+    "You're working on playing less. It is the hardest thing you have ever worked on. 'Restraint' sounds like subtraction but is actually the most demanding kind of addition.",
+    "The bassist and you have been locking in so tight that you've started anticipating each other's phrases. It feels less like playing music and more like a conversation in a language you're both still inventing.",
+    "You played a standard last week you've played five hundred times. It felt completely new. You don't know why. You've accepted that not knowing is part of it.",
+    "The drummer you most admire plays with a quarter of your vocabulary and says four times as much. You think about this more than is probably healthy.",
+    "You were late to a gig because you were listening to a record and completely lost track of time. You played the best set of the year. You are not drawing conclusions from this."
+  ],
+  pop: [
+    "The click track on the last session was 0.3ms inconsistent. You could feel it in your molars. Nobody else noticed. You said nothing. You are still thinking about it.",
+    "The producer asked you to play simpler. You played four notes a bar. He said simpler. There are now two notes per bar. He seems happy. You are professionally okay with this.",
+    "They comped your drums from six different takes. The final composite is genuinely the best possible version. This has not made it easier.",
+    "You wore your headphones so loud during the last session that you had a headache for two days. The track sounds great. These are related.",
+    "The studio had a beautiful vintage kit set up. They used samples. You played the kit anyway for feel — three hours of music that isn't on the record but is possibly why the record works.",
+    "Your chart had an unmarked fermata in measure 32. You recovered in under a beat. The engineer didn't notice. The producer didn't notice. You noticed.",
+    "The producer wanted 'more energy' on take 8. Takes 9 through 14 have progressively more energy. They used take 3. You have no follow-up questions.",
+    "You've played this song 47 times in the last month. You can play it in your sleep. You may have. You're not completely ruling it out.",
+    "The session ran four hours over and you weren't credited on the final track. You've genuinely stopped being surprised by this, which is either growth or defeat and you haven't decided which.",
+    "You played a ghost note on the snare in bar 12 that you're quietly very proud of. It was muted in the mix. It's there. You know it's there.",
+    "The engineer said your hi-hat sounded 'too live.' You've been quietly furious about this for three days. You've said nothing. You will continue to say nothing.",
+    "You checked the song on streaming. The drums sit exactly where you knew they would — buried but load-bearing. You are a foundation. Nobody puts a plaque on the foundation.",
+    "You were asked to play 'more human.' On a click. In a dead room. You did it. You are still not sure how."
+  ],
+  gospel: [
+    "The Spirit hit so hard last Sunday you went around the chorus four extra times. Nobody complained. Nobody was counting. This is also, technically, how you avoid accountability for the extra twelve minutes.",
+    "You broke a stick on the shout chorus. Finished the song with the broken half. That's just what you do. Also the broken half had better feel for some reason and you've been thinking about that.",
+    "The piano player doesn't read charts. You don't read charts. You've been playing together for nine years and you find each other in the pocket every single time. You're not sure this is explainable and you've stopped trying.",
+    "Someone in the congregation started clapping on the one and two instead of the two and four. You loved them immediately and adjusted. You are a professional. Also, bless their heart.",
+    "The bass player has been playing with you for sixteen years. You can tell what he had for lunch by how he plays the intro. This is either a gift or a problem depending on the lunch.",
+    "You've never played the same song exactly the same way twice. This is intentional. It is also occasionally the reason rehearsals run long.",
+    "You played for four hours last Sunday. Your hands didn't hurt until Monday morning. You are going to pretend this means something other than what it means.",
+    "The choir came in two beats early on the third song. You caught them and moved. Nobody fell. A visiting musician complimented the arrangement afterward. You smiled.",
+    "The pastor extended the altar call and you vamped for eleven minutes. The band followed without a word or a cue. That kind of trust takes years to build and you are grateful for it, even when it's eleven minutes.",
+    "Last Sunday the room was half-empty. You played like it was packed. Because somebody was there who needed it, and you've been in that seat yourself.",
+    "The director called a song you hadn't rehearsed in four months. You knew it. Every word. Every turn. Nine years of Sunday mornings doesn't go anywhere.",
+    "The organ player locked in with you so tight during the third song that you stopped thinking and just played. That's the whole job. Everything else is just setup.",
+    "You still get nervous before the shout section. Nine years in. You've decided this is correct. The day you stop getting nervous is the day it stops meaning something.",
+    "There was a moment in the bridge last week where the whole room went quiet. You held the groove so softly you weren't sure you were playing. You were. It was enough."
+  ],
+  rap: [
+    "The producer looped your hi-hat pattern from take 2 without mentioning it. It's in the final mix. You heard it on the radio while driving. You turned it up.",
+    "The 808 is doing half the work your kick drum used to do. You've made peace with this. The 808 has not had to make peace with anything.",
+    "Someone flipped your drum break, pitched it down a fifth, and built a whole record around it. You found out when the song charted. The check was modest. The feeling was not.",
+    "You played to a click all session but the producer swung the grid in post. It felt better. You listened and agreed. This took maturity.",
+    "The sample they built the beat around was a snare hit from a record you've never heard. They chopped it seventeen times. What's left sounds nothing like a snare. It's incredible.",
+    "You've been told your playing is 'too human' for the track three times this year. You have begun framing this as a compliment. It is getting easier.",
+    "The engineer left a room mic open during tracking by accident. That bleed is in the final mix. The producer called it a texture. You called it a mistake. You were both right.",
+    "You played thirty-two bars. They used eight. The eight bars they used are the eight bars you would have picked. You respect the edit even though you won't say so.",
+    "The producer heard you warming up and built a beat around the warmup. You weren't credited. You've started warming up more carefully.",
+    "You're trying to figure out how to give a machine something it can't replicate. You think you're getting closer. The machine keeps getting better, so the math on this is complicated.",
+    "The artist freestyled over your loop for forty minutes. None of the freestyle made the album. The loop is on the album. You're good with this. You are mostly good with this.",
+    "You've been told your fills are 'talking too much.' You stripped back to kick and snare. The track opened up like a window. You are still not going to admit that was the right call."
+  ]
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DEMO TRANSLATIONS (per genre × per phrase)
+// ─────────────────────────────────────────────────────────────────────────────
+const DEMO_PHRASES = [
+  "Let's circle back on this.",
+  "We need to leverage our core competencies and synergize across departments.",
+  "Can we take this offline?",
+  "I want to make sure we're all aligned before we move forward.",
+  "This represents a significant paradigm shift for our organization.",
+  "Do you have the bandwidth to take on one more project?",
+  "Let's do a quick level-set.",
+  "We're looking for initiatives that will really move the needle.",
+  "Your performance this quarter has been adequate but there is room for improvement.",
+  "I have an exciting opportunity I'd like to discuss with you."
+];
+
+const DEMOS = {
+  rock: [
+    `We fumbled the stick toss. Classic.\n\nReset from the top, I'll click us in, and this time everyone listens for the actual downbeat instead of assuming and hoping for the best. Last time we assumed our way through a transition, we crashed the bridge, the singer went a full bar early, and then the bass player was hit by a beer can.`,
+    `The kick and the bass player need to be in a committed relationship. Not this situationship where they're technically in the same room but emotionally doing completely different things.\n\nLock in. The last time we let this go unresolved, we lost the key change, lost the crowd, the guitarist did something inadvisable with his instrument, and then the bass player was hit by a beer can.`,
+    `Great idea. Yes. Let's not do this in front of the crowd.\n\nMeet me by my kit after the set — I'll be the one tearing down my own gear because we still don't have a roadie — and we'll handle it like adults. Or something reasonably close to adults.`,
+    `If we were any more misaligned we'd be in different time signatures. Not interesting ones we could brag about — just plain, catastrophic, front-row-visible misalignment.\n\nStop. Find the one. Start again. In that order. Before someone loses patience out there and then the bass player is hit by a beer can.`,
+    `We just threw out the setlist. New songs. Saturday. Act like this was always the plan, don't make eye contact with the front row, and stay close to the stage edge.\n\nLast time we surprised a crowd like this without warning, it went sideways fast, the monitor blew, and then the bass player was hit by a beer can. He was fine. We played an encore.`,
+    `Are you already playing three gigs this weekend?\n\nBecause this is another gig. I'm not asking if you're tired — I'm asking if you can show up and be present, which are technically different questions and we both know it.`,
+    `Soundcheck. Right now. Everybody stop, hit your note, and let's make sure we can hear each other before somebody does something creative directly into the monitors.\n\nThe last time we skipped soundcheck, two monitors blew, the singer forgot the bridge, someone in the third row threw something, and then the bass player was hit by a beer can.`,
+    `Nudge the tempo. Two BPM at a time. Don't announce it. Just do it and see if anyone notices.\n\nIf the bassist looks up from his phone, we've gone too far. If someone in the crowd starts pointing, we've gone further. If anything is thrown, and then the bass player is hit by a beer can, we are at exactly the right tempo.`,
+    `You're hitting the beats. Most of them. The ones that count.\n\nHere's the thing — there's a difference between playing a part and owning it. Right now you're renting. Month-to-month. No lease. I say this with respect and a small amount of urgency.`,
+    `The bassist quit and we have a gig Saturday. Fourteen songs. Four days. Pay is negotiable, meaning unclear.\n\nThe last guy who took this deal on short notice pulled it off beautifully, the crowd went insane, we got a standing ovation — and then the bass player was hit by a beer can. He was the new guy. He took it well. You in?`
+  ],
+  jazz: [
+    `The tune went somewhere unexpected. Good. Let it stay there for a moment.\n\nWhen we're ready, we'll find our way back to the head. No count-in needed — we'll hear each other. That's the whole instrument, actually. Not the drums. The listening.`,
+    `Every voice in the conversation has a role.\n\nRight now someone's talking over everyone else using vocabulary they learned instead of vocabulary they earned. Leave space. The most interesting thing you can play is sometimes nothing, which requires more confidence than anything loud.`,
+    `The room isn't right for this right now.\n\nLet the song finish. Let the moment land where it's going to land. We'll find each other afterward — probably near the bass case, like always — and we'll sort it out like people who respect each other's time.`,
+    `If we're not listening, we're just four people making noise in the same room.\n\nListening is the instrument. Not the kit, not the piano — the listening. Everything else is hardware.`,
+    `The changes shifted. That's not a problem, that's the music telling us something.\n\nPlayers who can't find their footing in a new set of changes don't last long in this idiom. Follow the harmony. It resolves — they always resolve — just sometimes not where you thought it was going.`,
+    `The music deserves your full attention or it deserves to wait until it has it.\n\nIf you're somewhere else right now, that's okay. Come back when you're here. I've seen a blues go thirty minutes. We have time. Probably.`,
+    `Let's stop and actually hear what's happening before we go any further.\n\nNot to fix it. Not to correct anyone. Just to find out what's actually going on, which is different from what we think is going on, which is different from what we planned. All three of those are information.`,
+    `Small adjustments made consistently over time create more movement than dramatic gestures made once and abandoned.\n\nYou don't push the tempo. You invite it. There's a significant difference and once you feel it you can't un-feel it, which is both the gift and the problem.`,
+    `Competent is the floor, not the ceiling.\n\nYou've got the chops. The question is whether you're using them in service of the music or in service of showing me you have them. One of those I can hear immediately. It's not the one you want it to be.`,
+    `There's something I'd like you to hear.\n\nI can't promise it leads anywhere in particular. I can't even promise it's going in a direction. But it's honest and it's happening, and I think you should be part of it. That's usually the whole pitch.`
+  ],
+  pop: [
+    `Missed the mark. Back to bar one, same click, everyone reads the actual chart in front of them — not the one they memorized from a different key in a different session three weeks ago.\n\nThe last time someone brought the wrong chart, we did seventeen takes, the producer stopped speaking in complete sentences, the engineer started eating lunch at the board, and that's when Tiffany passed out. Oh My God.`,
+    `You have a specific skill set. It's on the chart. Play what's on the chart.\n\nThe song doesn't need everyone's best idea. It needs everyone's right idea. These are different things and the distinction is what separates a great session from an interesting one that doesn't get used.`,
+    `The clock is running.\n\nStep outside, resolve it in five minutes, come back ready to track. The last time we tried to have this conversation during a session, it went forty minutes, the producer left to make a phone call and never came back, someone called catering twice, and that's when Tiffany passed out. Oh My God.`,
+    `I need everyone on the same chart, same tempo, same take.\n\nWe've done twelve. In eleven of them somebody wasn't quite there. The one time we got everyone locked in last year, the track was perfect, the producer cried — actual tears — and that's when Tiffany passed out. Oh My God.`,
+    `The format is changing. New workflow, new tools, new expectations for what professional looks like.\n\nThe ones who adapt quickly keep getting calls. The ones who don't spend a lot of time wondering why their phone got quieter. Not a judgment. Just a pattern I've watched long enough to mention.`,
+    `Before I say yes, I need to look at what's actually on the board.\n\nI double-booked once. Once. Both producers ended up in the same room, forty minutes of nobody speaking, someone started crying, someone else started invoicing, and that's when Tiffany passed out. Oh My God.`,
+    `Everyone off headphones. Play it through the room once and make sure we're all working from the same version.\n\nVersion conflicts are how you end up with a great take nobody can use. I'm saying this up front so I don't have to say it in a tone I regret.`,
+    `The goal is for the listener to feel something shift without knowing why.\n\nThe last track where we got it exactly right, it went top five, the label threw a party, the artist gave a speech, the producer got a plaque, it was a whole moment — and that's when Tiffany passed out. Oh My God.`,
+    `You're delivering. Parts are clean, tempo is solid, you're reading the room.\n\nThe last person who got this exact same note went on to do thirty-seven session dates in a single calendar year, had a release party at the studio, everyone was there, it was going great — and that's when Tiffany passed out. Oh My God.`,
+    `There's a session. The producer is specific. The vibe is tight. The chart is detailed.\n\nYou'd learn something. The rate is what it is. Send me your availability if you actually want to be there, because this particular producer can tell the difference and mentions it.`
+  ],
+  gospel: [
+    `The Spirit took us somewhere the chart didn't have marked. That was right.\n\nBut the congregation is still with us and they need the structure. We go back to the top. Stay in the pocket. And when we get to the bridge — when the organ drops and the room goes still and all that trust becomes something larger than any of us planned — do you see the light?`,
+    `Every gift in this room is here for a reason.\n\nThe problem is when gifts perform for each other instead of serving the room. Play past your skill set and into the moment. Give them the thing they actually came for. And when the music reaches past the music into something else — do you see the light?`,
+    `There are conversations that belong on the platform and conversations that belong in the green room.\n\nThis one belongs in the green room. After service. I'll be there. Bring coffee if you want — it's going to be a real conversation and those go better with coffee.`,
+    `If we're not moving together, we're not moving the room.\n\nThis congregation has been worshipping long enough to feel when we're disconnected. But they've also felt when we're locked in — when every instrument finds the same heartbeat and the room lifts without anyone deciding it should — and when that happens, I need you to ask yourself: do you see the light?`,
+    `God is doing something new. Which means the way we've always done it might not be the way we do it now.\n\nThat's uncomfortable. It's supposed to be. The musicians who can follow the Spirit into unfamiliar territory are the ones who'll still be here when the room needs them most.`,
+    `Before you say yes, make sure you can do it with your whole self.\n\nHalf-present doesn't serve this room. These people brought everything they had in here today. And when someone gives everything they have and the music meets them where they are — when that exchange actually happens — do you see the light?`,
+    `Let's come together before we go any further.\n\nThirty seconds. Everybody breathe, find the same beat, remember why we're in this room. Because when we play from that place — not from the chart but from that place — the room changes. And when the room changes, and the Spirit moves through the music, and something real happens that none of us could have engineered — do you see the light?`,
+    `You want to feel the room shift? Stop playing at it and start playing into it.\n\nThere is a difference. You feel it the second it happens. And a room that feels it will follow you absolutely anywhere you're willing to go.`,
+    `You're faithful. You're here every Sunday. You know every arrangement by heart.\n\nFaithful is the floor, not the ceiling. When you play past what you know and into what you feel, and someone in the back who wasn't sure they believed anything walks out changed — do you see the light?`,
+    `There's something I believe you're supposed to be part of.\n\nI can't promise where it leads. I can tell you the Spirit is moving in that direction. And when you're in the middle of something the Spirit is moving in — when the music becomes something larger than the notes — do you see the light?`
+  ],
+  rap: [
+    `The flow broke down mid-bar. Loop back to the 16, reset, come back in on the grid.\n\nI have said this at the last three sessions. If you come in off the beat one more time with that half-bar fill you think is clever, I'm going to look you directly in the eyes, and I will kick your ass.`,
+    `Know your lane on the track.\n\nThe kick, snare, hi-hat — everybody's got a job. We've been over this. Multiple times. If I hear one more unsolicited snare roll on the two when the chart says straight four, I'm going to say something more specific than this, and I will kick your ass.`,
+    `Take it out of the session.\n\nCreative conversations are great. They're just not great at $200 an hour with the engineer checking his phone. Handle it in the hallway, come back with a decision, and commit to the decision when you come back.`,
+    `If we're not all hearing the same loop, we're building on air.\n\nPlay it through the room. Make sure everyone's locked to the same BPM before anyone touches anything. I'm saying this calmly. I'm saying this once. If we start rolling and someone was on a different grid, I am going to put down my sticks, walk across the room quietly, and I will kick your ass.`,
+    `The sound is changing. What was one thing is becoming something else, and the producers who understand that are already three records ahead.\n\nThis isn't a warning. It's just a thing that's true, like tempo and gravity.`,
+    `Before I commit, tell me what's actually in the queue.\n\nI don't double-book. I don't half-show-up. The one time I let someone talk me into too much, the session was a disaster, the label blamed the drummer — always the drummer — and if you put me in that position again, I will kick your ass.`,
+    `Same session file. Same tempo. Same grid. Everybody verify before we start rolling.\n\nThis is not complicated. This is the most basic possible ask. The last time I assumed everyone was on the same file, we had four hours of unusable takes and a very long drive home where I sat with my feelings, and if that happens again, I will kick your ass.`,
+    `You want the track to hit different? Stop trying to make it hit. Let it breathe. Let the space do the work.\n\nRestraint is the hardest flex there is. Anybody can be loud. Not everybody knows when to leave a bar empty and trust that the empty bar is doing something.`,
+    `You're consistent. Patterns are clean. Timing is there.\n\nHere's what's not there: urgency. You're playing like you already have the gig. You do not already have the gig. And if I see you coast through one more bridge like you're doing me a favor, I will very sincerely, with full respect for your abilities, kick your ass.`,
+    `There's a session I want you on.\n\nDifferent vibe. Serious producer. Direction most people aren't going yet, which means you'd be early — and in this business, being early is either the best call you ever made or a great story about a record that didn't come out. Usually you don't know which until later.`
+  ]
+};
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────────────────────────────────────
+let currentGenre = 'rock';
+let lastInput = '';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GENRE PILLS — build + wire
+// ─────────────────────────────────────────────────────────────────────────────
+(function buildGenrePills() {
+  const container = document.getElementById('genrePills');
+  Object.entries(GENRES).forEach(([key, cfg]) => {
+    const btn = document.createElement('button');
+    btn.className = 'genre-pill' + (key === 'rock' ? ' active' : '');
+    btn.dataset.genre = key;
+    btn.textContent = cfg.label;
+    btn.onclick = () => setGenre(key);
+    container.appendChild(btn);
+  });
+})();
+
+function setGenre(key) {
+  currentGenre = key;
+  const cfg = GENRES[key];
+
+  // Update CSS vars
+  document.documentElement.style.setProperty('--g', cfg.color);
+  document.documentElement.style.setProperty('--g-glow', cfg.glow);
+
+  // Update pills
+  document.querySelectorAll('.genre-pill').forEach(p => {
+    p.classList.toggle('active', p.dataset.genre === key);
+  });
+
+  // Update output label
+  document.getElementById('outputLangLabel').textContent = cfg.outputLabel;
+
+  // Pulse logo
+  const mark = document.getElementById('logoMark');
+  mark.textContent = cfg.emoji;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EXAMPLE CHIPS
+// ─────────────────────────────────────────────────────────────────────────────
+(function buildChips() {
+  const grid = document.getElementById('examplesGrid');
+  DEMO_PHRASES.forEach((phrase, i) => {
+    const chip = document.createElement('button');
+    chip.className = 'example-chip';
+    chip.textContent = phrase.replace(/\.$/, '');
+    chip.onclick = () => loadDemo(i);
+    grid.appendChild(chip);
+  });
+})();
+
+function loadDemo(i) {
+  document.getElementById('inputText').value = DEMO_PHRASES[i];
+  updateCharCount();
+  const translation = DEMOS[currentGenre][i];
+  showOutput(translation, '(demo translation — try Live mode with a Claude API key for the full random experience)');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TRANSLATE
+// ─────────────────────────────────────────────────────────────────────────────
+async function doTranslate() {
+  const input = document.getElementById('inputText').value.trim();
+  if (!input) return;
+  lastInput = input;
+  await translateLive(input);
+}
+
+function translateDemo(inputText) {
+  const lower = inputText.toLowerCase();
+  let best = 0, bestScore = -1;
+  DEMO_PHRASES.forEach((phrase, i) => {
+    const words = phrase.toLowerCase().split(/\s+/);
+    const score = words.filter(w => w.length > 3 && lower.includes(w)).length;
+    if (score > bestScore) { bestScore = score; best = i; }
+  });
+  showOutput(
+    DEMOS[currentGenre][best],
+    '(demo mode — add a Claude API key above for live, ever-changing translations)'
+  );
+}
+
+function pickRandom(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+async function translateLive(text) {
+  setLoading(true);
+  const cfg = GENRES[currentGenre];
+  const idiosyncrasy = pickRandom(IDIOSYNCRASIES[currentGenre]);
+
+  const CLOSERS = {
+    rock:   { line: "and then the bass player was hit by a beer can", freq: 0.75 },
+    jazz:   { line: null, freq: 0 },
+    pop:    { line: "and that's when Tiffany passed out. Oh My God.", freq: 0.75 },
+    gospel: { line: "do you see the light?", freq: 0.75 },
+    rap:    { line: "and I will kick your ass", freq: 0.75 }
+  };
+  const closer = CLOSERS[currentGenre];
+  const useCloser = closer.line && Math.random() < closer.freq;
+
+  const systemPrompt =
+`You are Drum Speak — a translation engine with one purpose: take any text and render it through the mind and voice of a working drummer. You are sincere and you mean every word — but you are also funny. Drummer funny. The humor comes from being extremely specific about things that shouldn't matter this much, from dry understatement, from the occasional aside that goes slightly further than expected before snapping back to the point. You don't announce the joke. You just say the thing.
+
+GENRE VOICE:
+${cfg.styleGuide}
+
+CORE RULES:
+- Use drumming metaphors organically: tempo, BPM, the pocket, fills, downbeats, the one, setlist, soundcheck, groove, rushing, dragging, woodshedding — whatever fits this genre
+- Be sincere AND funny — the translation should mean something AND land as a bit
+- Keep roughly the same length as the input
+- Never use corporate jargon in the output — ever
+- Specific details are funnier than general statements. Name the thing. State the number. Say the exact moment.
+- Don't force every metaphor — some things can just be said like a human who happens to play drums
+${useCloser ? `
+CLOSING LINE: Build the translation naturally toward ending with this exact line as the final sentence: "${closer.line}" — let it be the punchline the whole thing has been quietly setting up.` : ''}
+
+IDIOSYNCRASY (weave this into the translation naturally — don't announce it, don't quote it, just let it color the voice and occasionally surface as a dry aside):
+${idiosyncrasy}`;
+
+  try {
+    const response = await fetch('/api/translate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, systemPrompt })
+    });
+
+    const data = await response.json();
+
+    if (response.status === 429) {
+      document.getElementById('rateLimitMsg').style.display = 'block';
+      document.getElementById('usageRow').style.display = 'none';
+      document.getElementById('translateBtn').disabled = true;
+      document.getElementById('againBtn').classList.remove('visible');
+      return;
+    }
+
+    if (!response.ok) {
+      showOutput('', `⚠️ ${data.error || 'Something went wrong. Try again in a moment.'}`);
+      return;
+    }
+
+    showOutput(data.translation, null);
+    document.getElementById('againBtn').classList.add('visible');
+    updateUsageDisplay(data.remaining);
+
+  } catch (e) {
+    showOutput('', `⚠️ Could not reach the translation service. Check your connection.`);
+  } finally {
+    setLoading(false);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UI HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
+function showOutput(text, note) {
+  const area = document.getElementById('outputArea');
+  area.innerHTML = '';
+
+  if (note) {
+    const badge = document.createElement('div');
+    badge.className = 'random-badge';
+    badge.textContent = note;
+    area.appendChild(badge);
+  }
+
+  const div = document.createElement('div');
+  div.className = 'output-text';
+  div.textContent = text;
+  area.appendChild(div);
+
+  document.getElementById('outputDot').classList.add('active');
+}
+
+function setLoading(on) {
+  const btn   = document.getElementById('translateBtn');
+  const icon  = document.getElementById('btnIcon');
+  const label = document.getElementById('btnLabel');
+  btn.disabled = on;
+  if (on) {
+    icon.className = 'spinner';
+    icon.textContent = '';
+    label.textContent = 'Translating…';
+  } else {
+    icon.className = '';
+    icon.textContent = GENRES[currentGenre].emoji;
+    label.textContent = 'Translate to Drummer';
+  }
+}
+
+function clearAll() {
+  document.getElementById('inputText').value = '';
+  document.getElementById('outputArea').innerHTML =
+    '<span class="output-placeholder">Your translation will appear here.</span>';
+  document.getElementById('outputDot').classList.remove('active');
+  document.getElementById('againBtn').classList.remove('visible');
+  updateCharCount();
+  lastInput = '';
+}
+
+function updateCharCount() {
+  const len = document.getElementById('inputText').value.length;
+  document.getElementById('charCount').textContent = `${len} / 2000`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// USAGE DISPLAY
+// ─────────────────────────────────────────────────────────────────────────────
+const DAILY_LIMIT = 5;
+
+function updateUsageDisplay(remaining) {
+  const used = DAILY_LIMIT - remaining;
+  const pipsEl = document.getElementById('usagePips');
+  const labelEl = document.getElementById('usageLabel');
+
+  pipsEl.innerHTML = '';
+  for (let i = 0; i < DAILY_LIMIT; i++) {
+    const pip = document.createElement('div');
+    pip.className = 'pip' + (i < used ? ' used' : '');
+    pipsEl.appendChild(pip);
+  }
+
+  if (remaining === 0) {
+    labelEl.textContent = 'All 5 translations used today';
+    document.getElementById('translateBtn').disabled = true;
+    document.getElementById('rateLimitMsg').style.display = 'block';
+    document.getElementById('usageRow').style.display = 'none';
+  } else {
+    labelEl.textContent = `${remaining} of ${DAILY_LIMIT} translations remaining today`;
+  }
+}
+
+// Init pips on load
+(function initUsage() {
+  const pipsEl = document.getElementById('usagePips');
+  for (let i = 0; i < DAILY_LIMIT; i++) {
+    const pip = document.createElement('div');
+    pip.className = 'pip';
+    pipsEl.appendChild(pip);
+  }
+})();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SUBSCRIBE
+// ─────────────────────────────────────────────────────────────────────────────
+function subscribe() {
+  const email = document.getElementById('ctaEmail').value.trim();
+  if (!email || !email.includes('@')) {
+    alert("Drop a real email and we'll handle the rest.");
+    return;
+  }
+  window.open(
+    `https://YOUR_SUBSTACK.substack.com/subscribe?email=${encodeURIComponent(email)}`,
+    '_blank'
+  );
+}
+</script>
+
+</body>
+</html>

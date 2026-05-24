@@ -464,7 +464,7 @@
   <div class="rate-limit-msg" id="rateLimitMsg">
     <h3>You've hit your limit for today 🥁</h3>
     <p>5 free translations a day. Come back tomorrow — or get the weekly unfiltered version in your inbox.</p>
-    <button class="btn-subscribe" onclick="subscribe()">Subscribe Free to Drum Speak</button>
+    <button class="btn-subscribe" onclick="subscribe()">Subscribe Free to Backbeat</button>
   </div>
 
   <!-- Examples -->
@@ -972,7 +972,10 @@ function updateUsageDisplay(remaining) {
 function subscribe() {
   const email = document.getElementById('ctaEmail').value.trim();
   if (!email || !email.includes('@')) {
-    alert("Drop a real email and we'll handle the rest.");
+    emailInput.style.borderColor = "#ff4444";
+    emailInout.placeholder = "Drop a real email first.";
+    setTimeout(() => { emailInput.style.borderColor = ""; 
+    emailInput.placeholder = "your@email.com"; }, 2500);
     return;
   }
   window.open(

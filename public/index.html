@@ -813,11 +813,11 @@ async function translateLive(text) {
   const idiosyncrasy = pickRandom(IDIOSYNCRASIES[currentGenre]);
 
   const CLOSERS = {
-    rock:   { line: "and then the bass player was hit by a beer can", freq: 0.35 },
+    rock:   { line: "and then the bass player was hit by a beer can", freq: 0.25 },
     jazz:   { line: null, freq: 0 },
-    pop:    { line: "and that's when Tiffany passed out. Oh My God.", freq: 0.35 },
-    gospel: { line: "do you see the light?", freq: 0.35 },
-    rap:    { line: "and I will kick your ass", freq: 0.35 }
+    pop:    { line: "and that's when Tiffany passed out. Oh My God.", freq: 0.25 },
+    gospel: { line: "do you see the light?", freq: 0.25 },
+    rap:    { line: "and I will kick your ass", freq: 0.25 }
   };
   const closer = CLOSERS[currentGenre];
   const useCloser = closer.line && Math.random() < closer.freq;
